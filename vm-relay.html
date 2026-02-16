@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f1f5f9; }
+        .status-card { transition: all 0.3s ease; }
+    </style>
+</head>
+<body>
+
+    <div class="min-h-screen flex flex-col">
+        <nav class="bg-white shadow-sm border-b shrink-0">
+            <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-user-shield text-blue-600 text-xl"></i>
+                    <h1 class="text-xl font-bold text-slate-800">통합 관리 대시보드</h1>
+                </div>
+            </div>
+        </nav>
+
+        <div class="max-w-7xl mx-auto px-6 py-8 w-full space-y-6">
+            
+            <!-- 상단 중계기 서버 상태 (1분마다 갱신) -->
+            <div id="relayStatus" class="bg-slate-800 rounded-2xl p-6 text-white shadow-xl flex flex-wrap items-center justify-between gap-6 status-card">
+                <div class="flex items-center gap-4">
+                    <div class="bg-blue-500/20 p-3 rounded-xl">
+                        <i class="fa-solid fa-microchip text-blue-400 text-2xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-slate-400 text-xs font-bold uppercase">중계기 서버 상태 (VM)</h3>
+                        <p class="text-lg font-bold">SYSTEM_RELAY <span id="relayIndicator" class="text-xs text-gray-400 ml-2">● Checking...</span></p>
+                    </div>
+                </div>
+                
+                <div class="flex gap-8 border-l border-slate-700 pl-8">
+                    <div class="text-center">
+                        <p class="text-slate-400 text-[10px] uppercase mb-1">CPU Load</p>
+                        <p id="main-cpu" class="text-xl font-mono font-bold">-</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-slate-400 text-[10px] uppercase mb-1">RAM</p>
+                        <p id="main-ram" class="text-xl font-mono font-bold text-emerald-400">-</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-slate-400 text-[10px] uppercase mb-1">Disk</p>
+                        <p id="main-disk" class="text-xl font-mono font-bold text-blue-400">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 기기 목록 및 검색 -->
+            <div class="bg-white rounded-2xl shadow-sm border p-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                    <h2 class="text-lg font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-mobile-screen-button text-slate-400"></i>
+                        <span>등록된 기기 목록</span>
+                        <span id="deviceCount" class="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500">0대</span>
+                    </h2>
+                    
+                    <!-- 검색 기능 -->
+                    <div class="relative w-full md:w-96">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
+                        </div>
+                        <input type="text" id="searchInput" 
+                            class="bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2.5" 
+                            placeholder="원격 코드 또는 디바이스 ID 검색...">
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left border-collapse">
+                        <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
+                            <tr>
+                                <th class="px-6 py-4 rounded-tl-xl whitespace-nowrap">원격 코드</th>
+                                <th class="px-6 py-4 whitespace-nowrap">디바이스 ID (문서번호)</th> <!-- [변경됨] -->
+                                <th class="px-6 py-4 text-center whitespace-nowrap">남은 시간</th>
+                                <th class="px-6 py-4 rounded-tr-xl text-right whitespace-nowrap">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deviceList" class="divide-y divide-slate-100">
+                            <!-- 데이터 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, doc, query, orderBy, onSnapshot, updateDoc, increment, getDocs, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCsdo-gps3z3nvwJ_EjNe0e4ZI4s4QH7XM",
+            projectId: "gen-lang-client-0349319821",
+            authDomain: "gen-lang-client-0349319821.firebaseapp.com"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let rawDevicesData = []; 
+        let currentSearchTerm = "";
+
+        // 1. 중계기 서버 상태 (1분 간격 Polling)
+        async function fetchRelayStatus() {
+            try {
+                const q = query(collection(db, "devices"), where("serial_code", "==", "SYSTEM_RELAY"));
+                const snapshot = await getDocs(q);
+                const indicator = document.getElementById('relayIndicator');
+                
+                if (!snapshot.empty) {
+                    const data = snapshot.docs[0].data();
+                    document.getElementById('main-cpu').innerText = data.cpu || "0.00";
+                    document.getElementById('main-ram').innerText = (data.ram || "0") + "%";
+                    document.getElementById('main-disk').innerText = (data.disk || "0") + "%";
+                    
+                    indicator.innerText = "● Online";
+                    indicator.className = "text-xs text-emerald-400 ml-2";
+                } else {
+                    indicator.innerText = "● Offline";
+                    indicator.className = "text-xs text-red-400 ml-2";
+                }
+            } catch (e) {
+                console.error("Relay fetch error", e);
+            }
+        }
+
+        fetchRelayStatus();
+        setInterval(fetchRelayStatus, 60000);
+
+        // 2. 일반 기기 목록 실시간 감시
+        function loadDevices() {
+            const listEl = document.getElementById('deviceList');
+            // 정렬 기준이 없다면 기본값으로 정렬 (데이터 양에 따라 orderBy 제거 가능)
+            const q = query(collection(db, "devices"));
+            
+            onSnapshot(q, (snapshot) => {
+                rawDevicesData = [];
+                
+                snapshot.forEach(d => {
+                    const data = d.data();
+                    if(data.serial_code === "SYSTEM_RELAY") return; 
+                    
+                    rawDevicesData.push({
+                        id: d.id, // ★ 여기가 핵심: 문서 ID(긴 문자열)를 저장
+                        ...data
+                    });
+                });
+                
+                // serial_code 기준으로 정렬 (필요시)
+                rawDevicesData.sort((a, b) => (a.serial_code || "").localeCompare(b.serial_code || ""));
+                
+                renderTable();
+            });
+        }
+
+        function renderTable() {
+            const listEl = document.getElementById('deviceList');
+            const countEl = document.getElementById('deviceCount');
+            let html = "";
+            
+            const filteredData = rawDevicesData.filter(item => {
+                const term = currentSearchTerm.toLowerCase();
+                const serial = (item.serial_code || "").toLowerCase();
+                const docId = (item.id || "").toLowerCase(); // ★ 문서 ID로 검색
+                
+                return serial.includes(term) || docId.includes(term);
+            });
+
+            filteredData.forEach(data => {
+                const seconds = data.remaining_seconds || 0;
+                const timeText = `${Math.floor(seconds / 3600)}시간 ${Math.floor((seconds % 3600) / 60)}분`;
+
+                html += `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <!-- 원격 코드 -->
+                        <td class="px-6 py-5 font-mono font-bold text-blue-600 text-lg whitespace-nowrap">${data.serial_code || 'N/A'}</td>
+                        
+                        <!-- ★ 디바이스 번호 (문서 ID) -->
+                        <td class="px-6 py-5">
+                            <span class="font-mono text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded select-all break-all">
+                                ${data.id}
+                            </span>
+                        </td>
+                        
+                        <!-- 남은 시간 -->
+                        <td class="px-6 py-5 text-center whitespace-nowrap">
+                            <div class="text-lg font-bold ${seconds < 1800 ? 'text-red-500' : 'text-slate-700'}">${timeText}</div>
+                            <div class="text-[10px] text-slate-400">(${seconds}초)</div>
+                        </td>
+                        
+                        <!-- 관리 버튼 -->
+                        <td class="px-6 py-5 text-right space-x-1 whitespace-nowrap">
+                            <button onclick="addTime('${data.id}', 1800)" class="border px-2 py-1 rounded text-xs font-bold text-green-600 hover:bg-green-50">+30분</button>
+                            <button onclick="addTime('${data.id}', -1800)" class="border px-2 py-1 rounded text-xs font-bold text-red-500 hover:bg-red-50">-30분</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            listEl.innerHTML = html;
+            countEl.innerText = filteredData.length + "대";
+            
+            if(filteredData.length === 0) {
+                listEl.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-slate-400">검색 결과가 없습니다.</td></tr>`;
+            }
+        }
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            currentSearchTerm = e.target.value.trim();
+            renderTable();
+        });
+
+        loadDevices();
+
+        window.addTime = async (docId, sec) => {
+            await updateDoc(doc(db, "devices", docId), { remaining_seconds: increment(sec) });
+        }
+    </script>
+</body>
+</html>
