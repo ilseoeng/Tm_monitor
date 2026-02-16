@@ -386,6 +386,7 @@
                         const isRefund = data.status === "refunded" || data.status === "cancel";
                         const txnId = data.transaction_id || '';
                         const amount = data.amount || 0;
+                        const currency = data.currency || '';
                         const totalMinutes = (data.total_seconds || 0) / 60;
 
                         html += `
@@ -401,8 +402,11 @@
                                         <div class="text-xs text-slate-500">${dateStr}</div>
                                     </div>
                                     <div class="text-right">
-                                        <div class="font-bold ${isRefund ? 'text-red-600' : 'text-slate-800'}">
+                                        <div class="font-bold ${isRefund ? 'text-red-600' : 'text-slate-800'} uppercase">
                                             ${totalMinutes}분 ${isRefund ? '환불' : '추가'}
+                                        </div>
+                                        <div class="text-[11px] font-bold ${isRefund ? 'text-red-400' : 'text-blue-500'} mt-0.5">
+                                            ${amount.toLocaleString()}${currency ? ' ' + currency : (amount > 0 ? ' KRW' : '')}
                                         </div>
                                         <div class="text-[10px] text-slate-400">${data.total_seconds}초</div>
                                     </div>
