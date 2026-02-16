@@ -36,19 +36,15 @@ app.post('/refund', async (req, res) => {
             return res.status(400).send('Missing required fields');
         }
 
-        // 1. Paddle Billing (v3) API를 통한 환불 요청 (Adjustment 생성)
-        // 참고: Paddle Billing에서는 환불을 'adjustment'로 처리합니다.
+        // Paddle Billing API: type='full'은 전체 거래 환불이므로 items 배열이 필요 없습니다.
+        // (items 배열은 type='partial'일 때만 사용)
+        console.log(`Processing full refund for transaction: ${transaction_id}`);
+
         const paddleResponse = await axios.post(`${PADDLE_BASE_URL}/adjustments`, {
             action: 'refund',
             transaction_id: transaction_id,
             reason: 'Admin refund from dashboard',
-            items: [
-                {
-                    item_id: 'default', // 전체 환불의 경우 보통 'default' 또는 특정 item_id가 필요할 수 있습니다.
-                    type: 'full', // 또는 'partial'
-                    amount: amount ? (amount * 100).toString() : undefined // 센트 단위라면 변환 필요
-                }
-            ]
+            type: 'full'
         }, {
             headers: {
                 'Authorization': `Bearer ${PADDLE_API_KEY}`,
@@ -56,12 +52,11 @@ app.post('/refund', async (req, res) => {
             }
         });
 
-        // Paddle Billing 응답 구조에 맞게 체크 (성공 시 201 Created)
         if (paddleResponse.status !== 201) {
             throw new Error(`Paddle refund failed with status ${paddleResponse.status}`);
         }
 
-        console.log('Paddle refund (adjustment) created:', transaction_id);
+        console.log('Paddle full refund created successfully for:', transaction_id);
 
         // 2. Firestore 데이터 업데이트
         const secondsToSubtract = parseInt(minutes) * 60;
@@ -93,8 +88,13 @@ app.post('/refund', async (req, res) => {
         res.status(200).json({ success: true, message: 'Refund adjustment created successfully' });
 
     } catch (error) {
-        console.error('Refund error:', error.response?.data || error.message);
-        res.status(500).json({ success: false, error: error.response?.data?.error?.detail || error.message });
+        const errorDetail = error.response?.data || error.message;
+        console.error('Refund error details:', JSON.stringify(errorDetail, null, 2));
+        res.status(500).json({
+            success: false,
+            error: error.response?.data?.error?.detail || error.message,
+            raw_error: errorDetail
+        });
     }
 });
 

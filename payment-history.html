@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>결제 내역 및 통계 - TM Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Noto+Sans+KR:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+        }
+
+        body {
+            font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+            background-color: var(--bg);
+            color: #1e293b;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .stat-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.05);
+        }
+
+        .tabular {
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #cbd5e1;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen">
+
+    <nav class="sticky top-0 z-40 glass border-b">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <a href="index.html"
+                    class="bg-blue-600 text-white p-2 rounded-xl hover:bg-blue-700 transition-all focus-visible:ring-2 focus-visible:ring-blue-500 outline-none">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </a>
+                <h1 class="text-xl font-bold tracking-tight">결제 통합 관리</h1>
+            </div>
+
+            <div id="authSection" class="flex items-center gap-4">
+                <div id="userInfo" class="hidden flex items-center gap-3">
+                    <span id="userEmailDisplay" class="text-sm font-medium text-slate-600"></span>
+                    <button id="logoutBtn"
+                        class="text-xs text-slate-400 hover:text-red-500 underline transition-colors">로그아웃</button>
+                </div>
+                <div id="loginPrompt" class="text-sm text-red-500 font-bold hidden">
+                    <i class="fa-solid fa-lock mr-1"></i> 관리자 권한 필요
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+
+        <!-- 통계 섹션 -->
+        <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="stat-card bg-white p-6 rounded-3xl border shadow-sm space-y-2">
+                <div class="flex justify-between items-start">
+                    <div class="bg-blue-50 p-2.5 rounded-2xl text-blue-600">
+                        <i class="fa-solid fa-calendar-check text-xl"></i>
+                    </div>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">This Month</span>
+                </div>
+                <div>
+                    <p class="text-3xl font-bold tabular" id="stat-month-sales">₩ 0</p>
+                    <p class="text-xs text-slate-500">이번 달 예상 매출 (결제 완료)</p>
+                </div>
+            </div>
+
+            <div class="stat-card bg-white p-6 rounded-3xl border shadow-sm space-y-2">
+                <div class="flex justify-between items-start">
+                    <div class="bg-emerald-50 p-2.5 rounded-2xl text-emerald-600">
+                        <i class="fa-solid fa-coins text-xl"></i>
+                    </div>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Revenue</span>
+                </div>
+                <div>
+                    <p class="text-3xl font-bold tabular" id="stat-total-sales">₩ 0</p>
+                    <p class="text-xs text-slate-500">누적 총 매출</p>
+                </div>
+            </div>
+
+            <div class="stat-card bg-white p-6 rounded-3xl border shadow-sm space-y-2">
+                <div class="flex justify-between items-start">
+                    <div class="bg-red-50 p-2.5 rounded-2xl text-red-600">
+                        <i class="fa-solid fa-rotate-left text-xl"></i>
+                    </div>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Refunds</span>
+                </div>
+                <div>
+                    <p class="text-3xl font-bold tabular" id="stat-total-refunds">0건</p>
+                    <p class="text-xs text-slate-500">누적 환불 처리 건수</p>
+                </div>
+            </div>
+
+            <div class="stat-card bg-white p-6 rounded-3xl border shadow-sm space-y-2">
+                <div class="flex justify-between items-start">
+                    <div class="bg-amber-50 p-2.5 rounded-2xl text-amber-600">
+                        <i class="fa-solid fa-chart-line text-xl"></i>
+                    </div>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Transactions</span>
+                </div>
+                <div>
+                    <p class="text-3xl font-bold tabular" id="stat-total-count">0건</p>
+                    <p class="text-xs text-slate-500">전체 결제 시도 횟수</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 필터 및 검색 섹션 -->
+        <section
+            class="bg-white p-6 rounded-3xl border shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div class="flex items-center gap-4 w-full md:w-auto">
+                <div class="relative w-full md:w-48">
+                    <select id="monthFilter"
+                        class="appearance-none bg-slate-50 border border-slate-200 text-sm rounded-2xl block w-full p-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all">
+                        <option value="all">전체 기간</option>
+                        <!-- JS로 채워짐 -->
+                    </select>
+                    <div class="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-chevron-down text-xs"></i>
+                    </div>
+                </div>
+                <div class="relative w-full md:w-64">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-magnifying-glass text-slate-400 text-sm"></i>
+                    </div>
+                    <input type="text" id="searchInput" placeholder="원격 코드, ID 검색…"
+                        class="bg-slate-50 border border-slate-200 text-sm rounded-2xl block w-full pl-10 p-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all">
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="refreshBtn" class="p-3 text-slate-500 hover:bg-slate-50 rounded-2xl transition-all">
+                    <i class="fa-solid fa-rotate"></i>
+                </button>
+                <div class="h-6 w-px bg-slate-200 mx-2"></div>
+                <span id="dataCount" class="text-xs font-bold text-slate-400">0 records found</span>
+            </div>
+        </section>
+
+        <!-- 내역 테이블 -->
+        <section class="bg-white rounded-3xl border shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left border-collapse">
+                    <thead
+                        class="bg-slate-50/50 text-slate-500 text-[10px] font-bold uppercase tracking-widest border-b">
+                        <tr>
+                            <th class="px-6 py-4">Status</th>
+                            <th class="px-6 py-4">Transaction Details</th>
+                            <th class="px-6 py-4">Serial Code</th>
+                            <th class="px-6 py-4">Amount</th>
+                            <th class="px-6 py-4">Time Added</th>
+                            <th class="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logList" class="divide-y divide-slate-100">
+                        <tr>
+                            <td colspan="6" class="px-6 py-12 text-center text-slate-400">
+                                <i class="fa-solid fa-circle-notch fa-spin text-blue-500 text-2xl mb-3"></i>
+                                <p>데이터를 불러오는 중입니다…</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 환불 처리 모달 (통합) -->
+    <div id="refundModal"
+        class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
+            <div class="px-8 py-6 flex justify-between items-center border-b">
+                <h3 class="font-bold text-xl tracking-tight">환불 상세 확인</h3>
+                <button onclick="closeRefundModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="p-8 space-y-6">
+                <div class="bg-slate-50 p-6 rounded-3xl space-y-3 border border-slate-100">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-slate-500">거래 ID</span>
+                        <span id="modal-txn-id" class="font-mono font-bold select-all"></span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-slate-500">기기 코드</span>
+                        <span id="modal-serial" class="font-bold text-blue-600"></span>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="space-y-2">
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">환불 금액
+                            (원)</label>
+                        <input type="number" id="refund-amount"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 font-bold text-lg focus:ring-4 focus:ring-red-500/10 focus:border-red-500 outline-none transition-all">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">차감 시간
+                            (분)</label>
+                        <input type="number" id="refund-minutes"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 font-bold text-lg focus:ring-4 focus:ring-red-500/10 focus:border-red-500 outline-none transition-all">
+                    </div>
+                </div>
+
+                <div class="pt-4 space-y-3">
+                    <button id="confirmRefundBtn"
+                        class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-red-200 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-check"></i> 환불 및 차감 확정
+                    </button>
+                    <button onclick="closeRefundModal()"
+                        class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-4 rounded-2xl transition-all">
+                        취소
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, query, orderBy, onSnapshot, getDocs, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCsdo-gps3z3nvwJ_EjNe0e4ZI4s4QH7XM",
+            projectId: "gen-lang-client-0349319821",
+            authDomain: "gen-lang-client-0349319821.firebaseapp.com"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let logs = [];
+        let filteredLogs = [];
+        let isAdmin = false;
+        let activeRefundData = null;
+
+        const logListEl = document.getElementById('logList');
+        const searchInput = document.getElementById('searchInput');
+        const monthFilter = document.getElementById('monthFilter');
+        const userInfo = document.getElementById('userInfo');
+        const loginPrompt = document.getElementById('loginPrompt');
+        const userEmailDisplay = document.getElementById('userEmailDisplay');
+
+        const krwFormatter = new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' });
+        const dateFullFormatter = new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
+        const monthYearFormatter = new Intl.DateTimeFormat('ko-KR', { year: 'numeric', month: 'long' });
+
+        // Authentication tracking
+        onAuthStateChanged(auth, (user) => {
+            if (user && !user.isAnonymous) {
+                isAdmin = true;
+                userInfo.classList.remove('hidden');
+                loginPrompt.classList.add('hidden');
+                userEmailDisplay.innerText = user.email;
+            } else {
+                isAdmin = false;
+                userInfo.classList.add('hidden');
+                loginPrompt.classList.remove('hidden');
+                alert("관리자 권한이 필요합니다. 대시보드 메인에서 로그인해주세요.");
+                window.location.href = 'index.html';
+            }
+            loadLogs();
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+
+        // Load logs and calculate stats
+        function loadLogs() {
+            const q = query(collection(db, "payment_logs"), orderBy("timestamp", "desc"));
+
+            onSnapshot(q, (snapshot) => {
+                logs = [];
+                const distinctMonths = new Set();
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const date = data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
+                    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+                    logs.push({ id: doc.id, ...data, date, monthKey });
+                    distinctMonths.add(monthKey);
+                });
+
+                // Update filter options
+                const currentMonthFilter = monthFilter.value;
+                monthFilter.innerHTML = '<option value="all">전체 기간</option>';
+                const sortedMonths = Array.from(distinctMonths).sort().reverse();
+                sortedMonths.forEach(m => {
+                    const date = new Date(m + '-01');
+                    const label = monthYearFormatter.format(date);
+                    const option = document.createElement('option');
+                    option.value = m;
+                    option.innerText = label;
+                    monthFilter.appendChild(option);
+                });
+                monthFilter.value = currentMonthFilter || 'all';
+
+                applyFiltersAndRender();
+            });
+        }
+
+        function applyFiltersAndRender() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const selectedMonth = monthFilter.value;
+
+            filteredLogs = logs.filter(log => {
+                const matchesSearch = (log.serial_code || '').toLowerCase().includes(searchTerm) ||
+                    (log.transaction_id || '').toLowerCase().includes(searchTerm);
+                const matchesMonth = selectedMonth === 'all' || log.monthKey === selectedMonth;
+                return matchesSearch && matchesMonth;
+            });
+
+            renderStats();
+            renderTable();
+        }
+
+        function renderStats() {
+            let totalRevenue = 0;
+            let currentMonthRevenue = 0;
+            let refundCount = 0;
+
+            const now = new Date();
+            const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+            logs.forEach(log => {
+                if (log.status === 'completed') {
+                    totalRevenue += (log.amount || 0);
+                    if (log.monthKey === currentMonthKey) {
+                        currentMonthRevenue += (log.amount || 0);
+                    }
+                } else if (log.status === 'refunded' || log.status === 'cancel') {
+                    refundCount++;
+                }
+            });
+
+            document.getElementById('stat-month-sales').innerText = krwFormatter.format(currentMonthRevenue);
+            document.getElementById('stat-total-sales').innerText = krwFormatter.format(totalRevenue);
+            document.getElementById('stat-total-refunds').innerText = `${refundCount}건`;
+            document.getElementById('stat-total-count').innerText = `${logs.length}건`;
+            document.getElementById('dataCount').innerText = `${filteredLogs.length} records found`;
+        }
+
+        function renderTable() {
+            if (filteredLogs.length === 0) {
+                logListEl.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-400">조회된 결과가 없습니다.</td></tr>`;
+                return;
+            }
+
+            logListEl.innerHTML = filteredLogs.map(log => {
+                const isRefunded = log.status === 'refunded' || log.status === 'cancel';
+                const dateStr = dateFullFormatter.format(log.date);
+                const amount = log.amount || 0;
+                const minutes = (log.total_seconds || 0) / 60;
+
+                return `
+                    <tr class="hover:bg-slate-50 transition-colors group">
+                        <td class="px-6 py-5">
+                            <span class="text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider ${log.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
+                        isRefunded ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-500'
+                    }">
+                                ${log.status === 'completed' ? '결제 완료' : log.status.toUpperCase()}
+                            </span>
+                        </td>
+                        <td class="px-6 py-5">
+                            <div class="font-mono text-[11px] text-slate-400 bg-slate-100/50 px-2 py-0.5 rounded inline-block mb-1 select-all">${log.transaction_id || 'N/A'}</div>
+                            <div class="text-[11px] text-slate-400 tabular">${dateStr}</div>
+                        </td>
+                        <td class="px-6 py-5 font-bold text-slate-700">${log.serial_code || '-'}</td>
+                        <td class="px-6 py-5 tabular font-bold ${isRefunded ? 'text-red-400 line-through' : 'text-slate-800'}">
+                            ${amount > 0 ? krwFormatter.format(amount) : '-'}
+                        </td>
+                        <td class="px-6 py-5 tabular">
+                            <div class="font-bold text-slate-800">${minutes}분</div>
+                            <div class="text-[10px] text-slate-400">(+${log.total_seconds}초)</div>
+                        </td>
+                        <td class="px-6 py-5 text-right">
+                            ${!isRefunded ? `
+                            <button onclick="openRefundModal('${log.id}')" class="text-[10px] font-bold text-red-500 bg-red-50/0 hover:bg-red-50 px-3 py-1.5 rounded-xl border border-red-100 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100">
+                                <i class="fa-solid fa-rotate-left mr-1"></i> 환불 처리
+                            </button>
+                            ` : `
+                            <span class="text-[10px] font-bold text-slate-300">처리됨</span>
+                            `}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Event Listeners
+        searchInput.addEventListener('input', applyFiltersAndRender);
+        monthFilter.addEventListener('change', applyFiltersAndRender);
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            const i = document.querySelector('#refreshBtn i');
+            i.classList.add('fa-spin');
+            setTimeout(() => {
+                applyFiltersAndRender();
+                i.classList.remove('fa-spin');
+            }, 500);
+        });
+
+        const refundModal = document.getElementById('refundModal');
+        const confirmRefundBtn = document.getElementById('confirmRefundBtn');
+
+        window.openRefundModal = (logDocId) => {
+            const log = logs.find(l => l.id === logDocId);
+            if (!log) return;
+
+            activeRefundData = log;
+            document.getElementById('modal-txn-id').innerText = log.transaction_id;
+            document.getElementById('modal-serial').innerText = log.serial_code;
+            document.getElementById('refund-amount').value = log.amount;
+            document.getElementById('refund-minutes').value = (log.total_seconds || 0) / 60;
+
+            refundModal.classList.remove('hidden');
+        };
+
+        window.closeRefundModal = () => {
+            refundModal.classList.add('hidden');
+            activeRefundData = null;
+        };
+
+        confirmRefundBtn.addEventListener('click', async () => {
+            if (!activeRefundData) return;
+
+            const amount = document.getElementById('refund-amount').value;
+            const minutes = document.getElementById('refund-minutes').value;
+
+            if (!confirm(`[최종 확인] 환불을 진행하시겠습니까?\n\n- 기기: ${activeRefundData.serial_code}\n- 환불 금액: ${amount}원\n- 차감 시간: ${minutes}분`)) return;
+
+            confirmRefundBtn.disabled = true;
+            confirmRefundBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> 처리 중…';
+
+            try {
+                const idToken = await auth.currentUser.getIdToken();
+                const response = await fetch('https://tm-refund-api-636108168337.asia-northeast3.run.app/refund', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${idToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        transaction_id: activeRefundData.transaction_id,
+                        amount: amount,
+                        minutes: minutes,
+                        serial_code: activeRefundData.serial_code
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert("환불 및 시간 차감이 완료되었습니다.");
+                    closeRefundModal();
+                } else {
+                    throw new Error(result.error || "처리 중 오류 발생");
+                }
+            } catch (error) {
+                console.error('Refund error:', error);
+                alert("오류: " + error.message);
+            } finally {
+                confirmRefundBtn.disabled = false;
+                confirmRefundBtn.innerHTML = '<i class="fa-solid fa-check"></i> 환불 및 차감 확정';
+            }
+        });
+
+        // Close modal on escape
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeRefundModal();
+        });
+
+    </script>
+</body>
+
+</html>

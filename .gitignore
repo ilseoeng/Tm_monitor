@@ -17,3 +17,8 @@ Thumbs.db
 # Credential files (if any were added locally)
 service-account.json
 *.key
+
+# Assistant tool directories
+.agent/
+.agents/
+.zencoder/

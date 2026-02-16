@@ -31,6 +31,12 @@
 
                 <!-- 관리자 로그인 섹션 -->
                 <div id="authSection" class="flex items-center gap-4">
+                    <!-- 결제/통계 버튼을 상시 노출로 이동 -->
+                    <a href="payment-history.html"
+                        class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-chart-line text-blue-500"></i> 결제/통계 관리
+                    </a>
+
                     <div id="loginForm" class="hidden flex items-center gap-2">
                         <input type="email" id="adminEmail" placeholder="이메일"
                             class="text-sm border rounded px-2 py-1 w-32 focus:outline-none focus:ring-1 focus:ring-blue-500">
