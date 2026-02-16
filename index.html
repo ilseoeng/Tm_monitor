@@ -468,7 +468,7 @@
                 // Cloud Run 호출을 위한 ID 토큰 가져오기
                 const idToken = await user.getIdToken();
 
-                const response = await fetch('https://tm-refund-api-zcmpxlvmla-du.a.run.app/refund', {
+                const response = await fetch('https://tm-refund-api-636108168337.asia-northeast3.run.app/refund', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${idToken}`,
